@@ -1,0 +1,53 @@
+
+# imgpkg copy -b registry.tanzu.vmware.com/tanzu-application-platform/tap-packages:$TAP_VERSION --to-repo ${INSTALL_REGISTRY_HOSTNAME}/se-americas-west/tap-packages –debug
+
+tanzu package repository add tanzu-tap-repository \
+  --url $INSTALL_REGISTRY_HOSTNAME/se-americas-west/tap-packages:$TAP_VERSION \
+  --namespace tap-install
+tanzu package repository get tanzu-tap-repository --namespace tap-install
+
+tanzu package available list --namespace tap-install
+
+#installing tap
+tanzu package installed update tap -p tap.tanzu.vmware.com -v $TAP_VERSION --values-file tap-air-gapped-gke.yaml -n tap-install
+
+
+
+Update ACS  to 2.1.0
+
+tanzu package available list application-configuration-service.tanzu.vmware.com --namespace tap-install
+
+export ACSVERSION=`tanzu package available list application-configuration-service.tanzu.vmware.com --namespace tap-install | grep application-configuration-service.tanzu.vmware.com  | awk '{print $2}'`
+
+tanzu package install application-configuration-service \
+ --package application-configuration-service.tanzu.vmware.com \
+ --version $ACSVERSION -n tap-install \
+
+
+
+
+TBS full deps:
+
+
+docker login dev.registry.pivotal.io
+docker login registry.tanzu.vmware.com
+
+tanzu package available list buildservice.tanzu.vmware.com --namespace tap-install
+
+rm -rf tbs-full-deps.tar
+
+export TBS_VERSION=`tanzu package available list buildservice.tanzu.vmware.com --namespace tap-install | grep build | awk '{print $2}'`
+
+# Run durng upgrades . Change Version of TBS
+imgpkg copy -b registry.tanzu.vmware.com/tanzu-application-platform/full-tbs-deps-package-repo:$TBS_VERSION \
+  --to-tar=tbs-full-deps.tar
+# move tbs-full-deps.tar to environment with registry access
+
+imgpkg copy --tar tbs-full-deps.tar \
+  --to-repo=dev.registry.pivotal.io/se-americas-west/tbs-full-deps #--debug
+
+tanzu package repository add tbs-full-deps-repository \
+  --url dev.registry.pivotal.io/se-americas-west/tbs-full-deps:$TBS_VERSION \
+  --namespace tap-install
+
+tanzu package install full-tbs-deps -p full-tbs-deps.tanzu.vmware.com -v $TBS_VERSION -n tap-install
